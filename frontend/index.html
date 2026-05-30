@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>DeFi Lending Platform</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: white;
+      padding: 30px;
+    }
+    .container {
+      max-width: 900px;
+      margin: auto;
+    }
+    .card {
+      background: #1e293b;
+      padding: 20px;
+      border-radius: 16px;
+      margin-bottom: 20px;
+    }
+    input, button {
+      padding: 10px;
+      margin: 5px;
+      border-radius: 8px;
+      border: none;
+    }
+    input {
+      width: 180px;
+    }
+    button {
+      background: #38bdf8;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    pre {
+      background: #020617;
+      padding: 15px;
+      border-radius: 12px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>DeFi Lending Platform</h1>
+
+  <div class="card">
+    <h2>Blockchain Status</h2>
+    <button onclick="checkStatus()">Check Status</button>
+  </div>
+
+  <div class="card">
+    <h2>Approve Collateral</h2>
+    <input id="approveAmount" value="1500" />
+    <button onclick="approveCollateral()">Approve</button>
+  </div>
+
+  <div class="card">
+    <h2>Create Loan</h2>
+    <input id="amount" value="1000" placeholder="Amount" />
+    <input id="collateral" value="1500" placeholder="Collateral" />
+    <input id="interestRate" value="10" placeholder="Interest %" />
+    <input id="durationDays" value="30" placeholder="Days" />
+    <button onclick="createLoan()">Create Loan</button>
+  </div>
+
+  <div class="card">
+    <h2>Get Loan</h2>
+    <input id="loanId" value="1" placeholder="Loan ID" />
+    <button onclick="getLoan()">Get Loan</button>
+    <button onclick="getRisk()">Risk</button>
+    <button onclick="getInterest()">Interest</button>
+    <button onclick="repayLoan()">Repay</button>
+  </div>
+
+  <div class="card">
+    <h2>Result</h2>
+    <pre id="result">Waiting...</pre>
+  </div>
+</div>
+
+<script>
+  const API = "http://localhost:8080/api";
+
+  function show(data) {
+    document.getElementById("result").textContent =
+      typeof data === "string" ? data : JSON.stringify(data, null, 2);
+  }
+
+  async function request(url, options = {}) {
+    try {
+      const response = await fetch(url, options);
+      const text = await response.text();
+
+      try {
+        show(JSON.parse(text));
+      } catch {
+        show(text);
+      }
+    } catch (e) {
+      show("Error: " + e.message);
+    }
+  }
+
+  function checkStatus() {
+    request(`${API}/blockchain/status`);
+  }
+
+  function approveCollateral() {
+    const amount = document.getElementById("approveAmount").value;
+    request(`${API}/tokens/collateral/approve/${amount}`, {
+      method: "POST"
+    });
+  }
+
+  function createLoan() {
+    const body = {
+      amount: document.getElementById("amount").value,
+      collateral: document.getElementById("collateral").value,
+      interestRate: document.getElementById("interestRate").value,
+      durationDays: document.getElementById("durationDays").value
+    };
+
+    request(`${API}/loans`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(body)
+    });
+  }
+
+  function getLoan() {
+    const id = document.getElementById("loanId").value;
+    request(`${API}/loans/${id}`);
+  }
+
+  function getRisk() {
+    const id = document.getElementById("loanId").value;
+    request(`${API}/loans/${id}/risk`);
+  }
+
+  function getInterest() {
+    const id = document.getElementById("loanId").value;
+    request(`${API}/loans/${id}/interest`);
+  }
+
+  function repayLoan() {
+    const id = document.getElementById("loanId").value;
+    request(`${API}/loans/${id}/repay`, {
+      method: "POST"
+    });
+  }
+</script>
+</body>
+</html>

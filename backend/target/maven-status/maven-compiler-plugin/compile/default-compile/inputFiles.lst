@@ -1,0 +1,7 @@
+D:\work\defi-lending-platform-1.1\backend\src\main\java\com\example\defilending\config\BlockchainProperties.java
+D:\work\defi-lending-platform-1.1\backend\src\main\java\com\example\defilending\config\CorsConfig.java
+D:\work\defi-lending-platform-1.1\backend\src\main\java\com\example\defilending\controller\LendingController.java
+D:\work\defi-lending-platform-1.1\backend\src\main\java\com\example\defilending\DefiLendingApplication.java
+D:\work\defi-lending-platform-1.1\backend\src\main\java\com\example\defilending\dto\CreateLoanRequest.java
+D:\work\defi-lending-platform-1.1\backend\src\main\java\com\example\defilending\dto\LoanResponse.java
+D:\work\defi-lending-platform-1.1\backend\src\main\java\com\example\defilending\service\LendingService.java
