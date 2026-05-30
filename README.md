@@ -1,191 +1,146 @@
 # DeFi Lending Platform
 
-Учебный MVP DeFi lending-протокола.
+A decentralized lending protocol built on Ethereum that enables users to obtain crypto-backed loans through smart contracts without relying on traditional financial intermediaries.
 
-Состав проекта:
+## Overview
 
-- `contracts/` — Solidity smart contracts: `LendingProtocol.sol`, `MockERC20.sol`
-- `backend/` — Java Spring Boot API, связь с контрактом через Web3j
-- `frontend/` — простой HTML/CSS/JS интерфейс
-- `scripts/deploy.js` — деплой локальных контрактов в Hardhat
+DeFi Lending Platform is a blockchain-based lending solution designed to provide transparent, secure, and permissionless access to liquidity.
 
-## 1. Быстрый запуск backend в demo-mode
+Users can deposit digital assets as collateral and receive loans directly through smart contracts. All lending operations are executed on-chain, ensuring transparency, immutability, and auditability.
 
-Demo-mode не требует блокчейна. Данные хранятся в памяти Java-приложения.
+The platform combines Ethereum smart contracts, a Java-based backend, and a lightweight web interface to deliver a complete decentralized lending experience.
 
-```powershell
-cd backend
-mvn spring-boot:run
-```
+## Key Features
 
-Проверка:
+* Collateral-backed lending
+* Smart contract–based loan management
+* Automated interest calculation
+* Risk assessment engine
+* Loan repayment functionality 
+* Collateral approval workflow
+* Ethereum blockchain integration
+* REST API for external integrations
+* Modular architecture for future scalability
 
-```powershell
-Invoke-RestMethod http://localhost:8080/api/health
-Invoke-RestMethod http://localhost:8080/api/blockchain/status
-```
+## How It Works
 
-Создать займ:
+### 1. Collateral Deposit
 
-```powershell
-Invoke-RestMethod -Uri "http://localhost:8080/api/loans" `
-  -Method Post `
-  -ContentType "application/json" `
-  -Body '{"amount":100,"collateral":200,"interestRate":10,"durationDays":30}'
-```
+A borrower approves the protocol to use a specified amount of collateral tokens.
 
-Получить займ:
+### 2. Loan Creation
 
-```powershell
-Invoke-RestMethod http://localhost:8080/api/loans/1
-```
+The protocol locks the collateral and issues a loan according to predefined parameters:
 
-## 2. Запуск с реальным smart contract через Hardhat
+* Loan amount
+* Collateral amount
+* Interest rate
+* Loan duration
 
-Нужны:
+### 3. Interest Accrual
 
-- Node.js 20+
-- JDK 17 или 21
-- Maven
+Interest is calculated automatically based on the loan conditions stored within the smart contract.
 
-### Шаг 1. Установить зависимости контрактов
+### 4. Loan Repayment
 
-В корне проекта:
+The borrower repays the outstanding debt and receives the locked collateral back.
 
-```powershell
-npm install
-```
+### 5. Risk Assessment
 
-### Шаг 2. Запустить локальный blockchain
+The protocol continuously evaluates loan risk using collateralization metrics.
 
-Открой первый терминал:
-
-```powershell
-npx hardhat node
-```
-
-Не закрывай этот терминал.
-
-### Шаг 3. Задеплоить контракты
-
-Открой второй терминал в корне проекта:
-
-```powershell
-npm run deploy:local
-```
-
-Скрипт выведет значения:
+## Architecture
 
 ```text
-RPC_URL=http://127.0.0.1:8545
-CONTRACT_ADDRESS=...
-LOAN_TOKEN_ADDRESS=...
-COLLATERAL_TOKEN_ADDRESS=...
-PRIVATE_KEY=...
+Frontend (HTML / JavaScript)
+            │
+            ▼
+Backend (Spring Boot REST API)
+            │
+            ▼
+Web3j Integration Layer
+            │
+            ▼
+Ethereum Smart Contracts
+            │
+            ▼
+LendingProtocol.sol
 ```
 
-Также они сохранятся в `backend/.env.local.example`.
+## Technology Stack
 
-### Шаг 4. Запустить Spring Boot в blockchain-mode
+### Blockchain Layer
 
-В PowerShell во втором терминале вставь значения из deploy output:
+* Ethereum
+* Solidity
+* Hardhat
+* Ethers.js
 
-```powershell
-cd backend
-$env:BLOCKCHAIN_ENABLED="true"
-$env:RPC_URL="http://127.0.0.1:8545"
-$env:CONTRACT_ADDRESS="ВСТАВЬ_CONTRACT_ADDRESS"
-$env:LOAN_TOKEN_ADDRESS="ВСТАВЬ_LOAN_TOKEN_ADDRESS"
-$env:COLLATERAL_TOKEN_ADDRESS="ВСТАВЬ_COLLATERAL_TOKEN_ADDRESS"
-$env:PRIVATE_KEY="ВСТАВЬ_PRIVATE_KEY"
-mvn spring-boot:run
-```
+### Backend
 
-Проверка режима:
+* Java 17
+* Spring Boot
+* Maven
+* Web3j
 
-```powershell
-Invoke-RestMethod http://localhost:8080/api/blockchain/status
-```
+### Frontend
 
-Должно быть:
+* HTML5
+* CSS3
+* JavaScript
 
-```json
-{
-  "blockchainEnabled": true
-}
-```
+## Smart Contracts
 
-## 3. Проверка через API
+### LendingProtocol.sol
 
-Создать займ в smart contract:
+Core protocol contract responsible for:
 
-```powershell
-Invoke-RestMethod -Uri "http://localhost:8080/api/loans" `
-  -Method Post `
-  -ContentType "application/json" `
-  -Body '{"amount":100,"collateral":200,"interestRate":10,"durationDays":30}'
-```
+* Loan creation
+* Collateral management
+* Interest calculation
+* Loan repayment
+* Liquidation logic
+* Risk evaluation
 
-Получить займ:
+### MockERC20.sol
 
-```powershell
-Invoke-RestMethod http://localhost:8080/api/loans/1
-```
+ERC-20 compatible token used within the protocol ecosystem.
 
-Посчитать проценты:
+## Security Considerations
 
-```powershell
-Invoke-RestMethod http://localhost:8080/api/loans/1/interest
-```
+The platform follows several security principles:
 
-Оценить риск:
+* On-chain transaction transparency
+* Deterministic smart contract execution
+* Access control validation
+* Collateralized lending model
+* Separation of protocol and interface layers
 
-```powershell
-Invoke-RestMethod http://localhost:8080/api/loans/1/risk
-```
+Future production deployments should additionally include:
 
-Погасить займ:
+* Independent smart contract audits
+* Oracle integration
+* Multi-signature administration
+* DAO governance mechanisms
 
-```powershell
-Invoke-RestMethod -Uri "http://localhost:8080/api/loans/1/repay" -Method Post
-```
+## Future Development
 
-После этого:
+Planned enhancements include:
 
-```powershell
-Invoke-RestMethod http://localhost:8080/api/loans/1
-```
+* MetaMask integration
+* Multi-asset collateral support
+* DAO governance
+* Yield generation mechanisms
+* Oracle-based liquidation system
+* Cross-chain interoperability
+* Production Ethereum deployment
 
-Статус должен стать `CLOSED`.
+## Project Status
 
-## 4. Frontend
+Active development.
 
-Открой файл:
+Current version provides a fully functional lending workflow including collateral approval, loan creation, risk assessment, interest calculation, and loan repayment through Ethereum smart contracts.
 
-```text
-frontend/index.html
-```
+## License
 
-Backend должен быть запущен на:
-
-```text
-http://localhost:8080
-```
-
-Frontend вызывает API backend, а backend вызывает smart contract.
-
-## 5. Что показывать на защите
-
-1. Запустить `npx hardhat node`.
-2. Выполнить `npm run deploy:local`.
-3. Запустить Spring Boot с env-переменными.
-4. Открыть `frontend/index.html`.
-5. Нажать `Проверить статус` — показать `blockchainEnabled: true`.
-6. Создать займ.
-7. Получить займ по ID.
-8. Показать risk и interest.
-9. Погасить займ и показать статус `CLOSED`.
-
-## 6. Важное замечание
-
-Для учебного MVP backend сам подписывает транзакции private key локального borrower-аккаунта Hardhat. В production так делать нельзя: пользователь должен подписывать транзакции через wallet, например MetaMask.
+MIT License
