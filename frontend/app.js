@@ -1,4 +1,4 @@
-const API = "http://localhost:8080/api";
+const API = "/api";
 const output = document.getElementById("output");
 
 function show(data) {
