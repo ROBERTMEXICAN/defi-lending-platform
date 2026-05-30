@@ -3,9 +3,11 @@ package com.example.defilending.controller;
 import com.example.defilending.dto.CreateLoanRequest;
 import com.example.defilending.dto.LoanResponse;
 import com.example.defilending.service.LendingService;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigInteger;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -37,9 +39,14 @@ public class LendingController {
         return Map.of("txHash", lendingService.approveLoanToken(amount));
     }
 
+    @GetMapping("/loans/my")
+    public List<LoanResponse> myLoans(Authentication auth) {
+        return lendingService.getLoansByAddress(auth.getName());
+    }
+
     @PostMapping("/loans")
-    public LoanResponse createLoan(@RequestBody CreateLoanRequest request) {
-        return lendingService.createLoan(request);
+    public LoanResponse createLoan(@RequestBody CreateLoanRequest request, Authentication auth) {
+        return lendingService.createLoan(request, auth.getName());
     }
 
     @GetMapping("/loans/{id}")

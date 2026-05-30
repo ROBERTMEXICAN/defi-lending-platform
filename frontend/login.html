@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Войти — DeFi Lending</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0f172a;
+      font-family: Arial, sans-serif;
+      color: white;
+    }
+
+    .card {
+      background: #1e293b;
+      border-radius: 24px;
+      padding: 48px 40px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.5);
+      text-align: center;
+    }
+
+    .logo {
+      font-size: 48px;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #f1f5f9;
+    }
+
+    p.subtitle {
+      font-size: 14px;
+      color: #94a3b8;
+      margin-bottom: 36px;
+      line-height: 1.6;
+    }
+
+    button#connectBtn {
+      width: 100%;
+      padding: 16px;
+      background: #38bdf8;
+      color: #0f172a;
+      border: none;
+      border-radius: 14px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    button#connectBtn:hover  { background: #7dd3fc; }
+    button#connectBtn:active { transform: scale(0.98); }
+    button#connectBtn:disabled {
+      background: #334155;
+      color: #64748b;
+      cursor: not-allowed;
+    }
+
+    .status {
+      margin-top: 20px;
+      min-height: 24px;
+      font-size: 14px;
+      color: #94a3b8;
+    }
+
+    .status.error { color: #f87171; }
+    .status.success { color: #4ade80; }
+    .status.info { color: #38bdf8; }
+
+    .divider {
+      margin: 28px 0;
+      border: none;
+      border-top: 1px solid #334155;
+    }
+
+    .hint {
+      font-size: 12px;
+      color: #475569;
+      line-height: 1.6;
+    }
+
+    .hint a {
+      color: #38bdf8;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">🏦</div>
+  <h1>DeFi Lending Platform</h1>
+  <p class="subtitle">Войдите с помощью MetaMask.<br>Никаких паролей — только ваш кошелёк.</p>
+
+  <button id="connectBtn">
+    <span>🦊</span> Connect Wallet
+  </button>
+
+  <p class="status" id="status"></p>
+
+  <hr class="divider" />
+
+  <p class="hint">
+    Нет MetaMask?
+    <a href="https://metamask.io/download/" target="_blank">Установить →</a>
+  </p>
+</div>
+
+<script>
+  const API = "/api";
+
+  function setStatus(msg, type = "") {
+    const el = document.getElementById("status");
+    el.textContent = msg;
+    el.className = "status " + type;
+  }
+
+  function setLoading(loading) {
+    const btn = document.getElementById("connectBtn");
+    btn.disabled = loading;
+    btn.innerHTML = loading
+      ? "<span>⏳</span> Подключение..."
+      : "<span>🦊</span> Connect Wallet";
+  }
+
+  document.getElementById("connectBtn").addEventListener("click", async () => {
+    if (!window.ethereum) {
+      setStatus("❌ MetaMask не найден. Установите расширение.", "error");
+      return;
+    }
+
+    setLoading(true);
+    setStatus("Запрашиваем доступ к кошельку...", "info");
+
+    try {
+      // 1. Получаем адрес кошелька
+      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+      const address = accounts[0];
+      setStatus("Получаем nonce...", "info");
+
+      // 2. Запрашиваем nonce у бэкенда
+      const nonceRes = await fetch(`${API}/auth/nonce/${address}`);
+      if (!nonceRes.ok) throw new Error("Не удалось получить nonce от сервера");
+      const { message } = await nonceRes.json();
+
+      setStatus("Подпишите сообщение в MetaMask...", "info");
+
+      // 3. Подписываем сообщение в MetaMask
+      const signature = await window.ethereum.request({
+        method: "personal_sign",
+        params: [message, address]
+      });
+
+      setStatus("Проверяем подпись...", "info");
+
+      // 4. Отправляем подпись на бэкенд
+      const verifyRes = await fetch(`${API}/auth/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address, signature })
+      });
+
+      if (!verifyRes.ok) {
+        const err = await verifyRes.json();
+        throw new Error(err.error || "Ошибка верификации");
+      }
+
+      const { token } = await verifyRes.json();
+
+      // 5. Сохраняем токен и редиректим
+      localStorage.setItem("jwt", token);
+      localStorage.setItem("walletAddress", address.toLowerCase());
+
+      setStatus("✅ Успешно! Перенаправляем...", "success");
+      setTimeout(() => { window.location.href = "/"; }, 800);
+
+    } catch (e) {
+      const msg = e.code === 4001
+        ? "Вы отклонили подпись в MetaMask"
+        : e.message || "Неизвестная ошибка";
+      setStatus("❌ " + msg, "error");
+      setLoading(false);
+    }
+  });
+
+  // Если уже авторизован — редиректим сразу
+  if (localStorage.getItem("jwt")) {
+    window.location.href = "/";
+  }
+</script>
+</body>
+</html>

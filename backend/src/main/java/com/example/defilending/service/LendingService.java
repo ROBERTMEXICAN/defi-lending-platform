@@ -34,6 +34,8 @@ public class LendingService {
 
     private final AtomicLong counter = new AtomicLong(0);
     private final Map<BigInteger, LoanResponse> demoStorage = new ConcurrentHashMap<>();
+    // address (lowercase) -> list of loan IDs owned by that address
+    private final Map<String, List<BigInteger>> loansByAddress = new ConcurrentHashMap<>();
     private final BlockchainProperties props;
 
     public LendingService(BlockchainProperties props) {
@@ -49,7 +51,7 @@ public class LendingService {
                 && !props.getPrivateKey().isBlank();
     }
 
-    public LoanResponse createLoan(CreateLoanRequest request) {
+    public LoanResponse createLoan(CreateLoanRequest request, String callerAddress) {
         if (blockchainEnabled()) {
             try {
                 Function function = new Function(
@@ -73,12 +75,28 @@ public class LendingService {
                         )
                 );
 
+                recordLoan(callerAddress, id);
                 return getLoan(id);
             } catch (Exception e) {
                 throw new RuntimeException("Blockchain createLoan failed: " + e.getMessage(), e);
             }
         }
-        return createDemoLoan(request);
+        return createDemoLoan(request, callerAddress);
+    }
+
+    public List<LoanResponse> getLoansByAddress(String address) {
+        List<BigInteger> ids = loansByAddress.getOrDefault(address.toLowerCase(), List.of());
+        return ids.stream()
+                .map(id -> {
+                    try { return getLoan(id); } catch (Exception e) { return null; }
+                })
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    private void recordLoan(String address, BigInteger id) {
+        loansByAddress.computeIfAbsent(address.toLowerCase(),
+                k -> new java.util.concurrent.CopyOnWriteArrayList<>()).add(id);
     }
 
     public LoanResponse getLoan(BigInteger id) {
@@ -212,13 +230,14 @@ public class LendingService {
         }
     }
 
-    private LoanResponse createDemoLoan(CreateLoanRequest request) {
+    private LoanResponse createDemoLoan(CreateLoanRequest request, String callerAddress) {
         BigInteger id = BigInteger.valueOf(counter.incrementAndGet());
         BigInteger now = BigInteger.valueOf(Instant.now().getEpochSecond());
         BigInteger end = now.add(request.durationDays().multiply(BigInteger.valueOf(86400)));
         BigInteger repayment = request.amount().add(request.amount().multiply(request.interestRate()).divide(BigInteger.valueOf(100)));
-        LoanResponse loan = new LoanResponse(id, "0xDemoBorrower", request.amount(), request.collateral(), request.interestRate(), request.durationDays(), "ACTIVE", now, end, repayment);
+        LoanResponse loan = new LoanResponse(id, callerAddress.toLowerCase(), request.amount(), request.collateral(), request.interestRate(), request.durationDays(), "ACTIVE", now, end, repayment);
         demoStorage.put(id, loan);
+        recordLoan(callerAddress, id);
         return loan;
     }
 

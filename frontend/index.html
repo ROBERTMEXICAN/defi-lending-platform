@@ -31,6 +31,7 @@
     }
     button {
       background: #38bdf8;
+      color: #0f172a;
       cursor: pointer;
       font-weight: bold;
     }
@@ -44,35 +45,88 @@
 </head>
 <body>
 <div class="container">
-  <h1>DeFi Lending Platform</h1>
+  <!-- Header -->
+  <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:24px;">
+    <h1 style="margin:0;">🏦 DeFi Lending</h1>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <span style="background:#1e293b; padding:8px 14px; border-radius:999px; font-size:13px; color:#94a3b8;">
+        🦊 <span id="walletLabel">—</span>
+      </span>
+      <button id="logoutBtn" style="background:#ef4444; color:white; font-size:13px; padding:8px 14px;">Выйти</button>
+    </div>
+  </div>
 
   <div class="card">
     <h2>Blockchain Status</h2>
-    <button onclick="checkStatus()">Check Status</button>
+    <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+      <button id="getStatus" onclick="checkStatus()">Check Status</button>
+      <span id="statusBadge" style="
+        display: none;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        border-radius: 999px;
+        font-weight: bold;
+        font-size: 14px;
+      ">
+        <span id="statusDot" style="
+          width: 10px; height: 10px;
+          border-radius: 50%;
+          display: inline-block;
+        "></span>
+        <span id="statusText"></span>
+      </span>
+    </div>
   </div>
 
   <div class="card">
     <h2>Approve Collateral</h2>
     <input id="approveAmount" value="1500" />
-    <button onclick="approveCollateral()">Approve</button>
+    <button id="approveBtn">Approve</button>
   </div>
 
   <div class="card">
     <h2>Create Loan</h2>
-    <input id="amount" value="1000" placeholder="Amount" />
-    <input id="collateral" value="1500" placeholder="Collateral" />
-    <input id="interestRate" value="10" placeholder="Interest %" />
-    <input id="durationDays" value="30" placeholder="Days" />
-    <button onclick="createLoan()">Create Loan</button>
+    <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; margin-bottom:12px;">
+      <label style="display:flex; flex-direction:column; font-size:13px; color:#94a3b8;">
+        Сумма займа (токены)
+        <input id="amount" value="1000" placeholder="напр. 1000" style="margin-top:4px;" />
+      </label>
+      <label style="display:flex; flex-direction:column; font-size:13px; color:#94a3b8;">
+        Залог (токены) <span style="color:#f87171;">≥ суммы займа</span>
+        <input id="collateral" value="1500" placeholder="напр. 1500" style="margin-top:4px;" />
+      </label>
+      <label style="display:flex; flex-direction:column; font-size:13px; color:#94a3b8;">
+        Процентная ставка (%)
+        <input id="interestRate" value="10" placeholder="напр. 10" style="margin-top:4px;" />
+      </label>
+      <label style="display:flex; flex-direction:column; font-size:13px; color:#94a3b8;">
+        Срок займа (дней)
+        <input id="durationDays" value="30" placeholder="напр. 30" style="margin-top:4px;" />
+      </label>
+    </div>
+    <div style="font-size:12px; color:#64748b; margin-bottom:10px;">
+      Пример: займ <b style="color:#38bdf8;">1000</b> токенов под залог <b style="color:#38bdf8;">1500</b> на <b style="color:#38bdf8;">30</b> дней под <b style="color:#38bdf8;">10%</b> → к погашению <b style="color:#4ade80;">1100</b> токенов
+    </div>
+    <button id="createLoanBtn">Create Loan</button>
   </div>
 
   <div class="card">
     <h2>Get Loan</h2>
     <input id="loanId" value="1" placeholder="Loan ID" />
-    <button onclick="getLoan()">Get Loan</button>
-    <button onclick="getRisk()">Risk</button>
-    <button onclick="getInterest()">Interest</button>
-    <button onclick="repayLoan()">Repay</button>
+    <button id="getLoanBtn">Get Loan</button>
+    <button id="getRiskBtn">Risk</button>
+    <button id="getInterestBtn">Interest</button>
+    <button id="repayBtn">Repay</button>
+  </div>
+
+  <!-- My Loans -->
+  <div class="card">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+      <h2 style="margin:0;">Мои займы</h2>
+      <button id="refreshLoansBtn" style="font-size:13px; padding:8px 14px;">🔄 Обновить</button>
+    </div>
+    <div id="myLoans" style="color:#64748b; font-size:14px;">Нажмите «Обновить» для загрузки</div>
   </div>
 
   <div class="card">
@@ -82,30 +136,150 @@
 </div>
 
 <script>
-  const API = "http://localhost:8080/api";
+  const API = "/api";
 
+  // ── Guards ────────────────────────────────────────────────────
+  function getToken()   { return localStorage.getItem("jwt"); }
+  function getAddress() { return localStorage.getItem("walletAddress"); }
+
+  function logout() {
+    localStorage.removeItem("jwt");
+    localStorage.removeItem("walletAddress");
+    window.location.href = "/login.html";
+  }
+
+  // ── Authenticated fetch ───────────────────────────────────────
   function show(data) {
     document.getElementById("result").textContent =
       typeof data === "string" ? data : JSON.stringify(data, null, 2);
   }
 
   async function request(url, options = {}) {
+    const token = getToken();
+    if (token) {
+      options.headers = { ...(options.headers || {}), "Authorization": "Bearer " + token };
+    }
     try {
       const response = await fetch(url, options);
-      const text = await response.text();
-
-      try {
-        show(JSON.parse(text));
-      } catch {
-        show(text);
+      if (response.status === 401) {
+        show("Сессия истекла. Подключитесь снова.");
+        logout();
+        return;
       }
+      const text = await response.text();
+      try { show(JSON.parse(text)); } catch { show(text); }
     } catch (e) {
       show("Error: " + e.message);
     }
   }
 
-  function checkStatus() {
-    request(`${API}/blockchain/status`);
+  // ── My Loans ──────────────────────────────────────────────────
+  async function loadMyLoans() {
+    const container = document.getElementById("myLoans");
+    container.textContent = "Загружаем...";
+    try {
+      const res = await fetch(`${API}/loans/my`, {
+        headers: { "Authorization": "Bearer " + getToken() }
+      });
+      if (res.status === 401) { logout(); return; }
+      const loans = await res.json();
+
+      if (!loans.length) {
+        container.innerHTML = "<span style='color:#64748b;'>У вас ещё нет займов</span>";
+        return;
+      }
+
+      const statusColor = { ACTIVE: "#4ade80", CLOSED: "#94a3b8", LIQUIDATED: "#f87171" };
+      container.innerHTML = loans.map(l => `
+        <div style="background:#0f172a; border-radius:12px; padding:14px 16px; margin-bottom:10px;
+                    display:flex; flex-wrap:wrap; gap:12px; align-items:center; font-size:13px;">
+          <span style="font-weight:700; color:#38bdf8;">#${l.id}</span>
+          <span style="background:${statusColor[l.status] || '#94a3b8'}22;
+                       color:${statusColor[l.status] || '#94a3b8'};
+                       padding:3px 10px; border-radius:999px; font-weight:700; font-size:12px;">
+            ${l.status}
+          </span>
+          <span>💰 <b>${l.amount}</b> токенов</span>
+          <span>🔒 Залог: <b>${l.collateral}</b></span>
+          <span>📈 Ставка: <b>${l.interestRate}%</b></span>
+          <span>📅 <b>${l.durationDays}</b> дней</span>
+          <span>💸 К погашению: <b style="color:#4ade80;">${l.repaymentAmount}</b></span>
+        </div>
+      `).join("");
+    } catch (e) {
+      container.innerHTML = "<span style='color:#f87171;'>Ошибка загрузки: " + e.message + "</span>";
+    }
+  }
+
+  // ── Init ──────────────────────────────────────────────────────
+  document.addEventListener("DOMContentLoaded", () => {
+    // Redirect to login if not authenticated
+    if (!getToken()) {
+      window.location.href = "/login.html";
+      return;
+    }
+
+    // Show wallet address in header
+    const addr = getAddress();
+    if (addr) {
+      document.getElementById("walletLabel").textContent =
+        addr.slice(0, 6) + "..." + addr.slice(-4);
+    }
+
+    const bind = (id, fn) => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener("click", fn);
+    };
+
+    bind("logoutBtn",      logout);
+    bind("getStatus",      checkStatus);
+    bind("approveBtn",     approveCollateral);
+    bind("createLoanBtn",  createLoan);
+    bind("getLoanBtn",     getLoan);
+    bind("getRiskBtn",     getRisk);
+    bind("getInterestBtn", getInterest);
+    bind("repayBtn",       repayLoan);
+    bind("refreshLoansBtn",loadMyLoans);
+
+    // Auto-load loans on open
+    loadMyLoans();
+  });
+
+  async function checkStatus() {
+    try {
+      const headers = getToken() ? { "Authorization": "Bearer " + getToken() } : {};
+      const res = await fetch(`${API}/blockchain/status`, { headers });
+      const data = await res.json();
+      show(data);
+
+      const enabled = data.blockchainEnabled === true;
+      const badge = document.getElementById("statusBadge");
+      const dot   = document.getElementById("statusDot");
+      const text  = document.getElementById("statusText");
+
+      badge.style.display = "inline-flex";
+      if (enabled) {
+        badge.style.background = "#dcfce7";
+        badge.style.color      = "#16a34a";
+        dot.style.background   = "#16a34a";
+        text.textContent       = "Blockchain connected";
+      } else {
+        badge.style.background = "#fef9c3";
+        badge.style.color      = "#a16207";
+        dot.style.background   = "#a16207";
+        text.textContent       = "Demo mode (no blockchain)";
+      }
+    } catch (e) {
+      show("Error: " + e.message);
+      const badge = document.getElementById("statusBadge");
+      const dot   = document.getElementById("statusDot");
+      const text  = document.getElementById("statusText");
+      badge.style.display    = "inline-flex";
+      badge.style.background = "#fee2e2";
+      badge.style.color      = "#dc2626";
+      dot.style.background   = "#dc2626";
+      text.textContent       = "Unavailable";
+    }
   }
 
   function approveCollateral() {
