@@ -1,6 +1,10 @@
 server:
   port: 8080
 
+jwt:
+  secret: ${JWT_SECRET:defi-lending-super-secret-key-change-in-production-min-256-bits}
+  expiration-ms: 86400000  # 24 hours
+
 blockchain:
   enabled: ${BLOCKCHAIN_ENABLED:false}
   rpc-url: ${RPC_URL:http://127.0.0.1:8545}
