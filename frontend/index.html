@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>DeFi Lending Platform</title>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.0/dist/ethers.umd.min.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -79,45 +80,72 @@
     </div>
   </div>
 
+  <!-- Token Balances -->
   <div class="card">
-    <h2>Approve Collateral</h2>
-    <input id="approveAmount" value="1500" />
-    <button id="approveBtn">Approve</button>
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+      <h2 style="margin:0;">Мой баланс</h2>
+      <div style="display:flex; gap:8px;">
+        <button id="addTokenBtn" style="font-size:13px; padding:8px 14px; background:#8b5cf6; display:none;">🦊 Добавить токен в MetaMask</button>
+        <button id="refreshBalanceBtn" style="font-size:13px; padding:8px 14px;">🔄 Обновить</button>
+      </div>
+    </div>
+    <div id="balanceBlock" style="display:flex; gap:16px; flex-wrap:wrap;">
+      <div style="background:#0f172a; border-radius:12px; padding:14px 20px; flex:1; min-width:160px;">
+        <div style="font-size:12px; color:#94a3b8; margin-bottom:4px;">💼 Баланс кошелька</div>
+        <div id="walletBalance" style="font-size:22px; font-weight:700; color:#38bdf8;">—</div>
+        <div style="font-size:11px; color:#475569; margin-top:4px;">свободные токены</div>
+      </div>
+      <div style="background:#0f172a; border-radius:12px; padding:14px 20px; flex:1; min-width:160px;">
+        <div style="font-size:12px; color:#94a3b8; margin-bottom:4px;">📊 Общий капитал</div>
+        <div id="totalCapital" style="font-size:22px; font-weight:700; color:#a78bfa;">—</div>
+        <div style="font-size:11px; color:#475569; margin-top:4px;">кошелёк + залог</div>
+      </div>
+    </div>
+    <div id="balanceWarning" style="display:none; margin-top:12px; background:#7f1d1d; border-radius:10px; padding:10px 14px; font-size:13px; color:#fca5a5;">
+      ⚠️ Недостаточно токенов. Получи токены через «Получить» выше.
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Управление токенами</h2>
+    <div style="display:flex; flex-wrap:wrap; gap:16px;">
+      <div>
+        <div style="font-size:12px; color:#94a3b8; margin-bottom:6px;">Получить токены на кошелёк</div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input id="mintAddress" placeholder="0x адрес кошелька" style="width:260px;" />
+          <input id="mintAmount" value="10000" style="width:100px;" />
+          <button id="mintBtn">Получить</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="card">
     <h2>Create Loan</h2>
     <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; margin-bottom:12px;">
       <label style="display:flex; flex-direction:column; font-size:13px; color:#94a3b8;">
-        Сумма займа (токены)
-        <input id="amount" value="1000" placeholder="напр. 1000" style="margin-top:4px;" />
+        Залог (токены)
+        <input id="collateral" placeholder="напр. 1500" style="margin-top:4px;" oninput="calcFromCollateral()" />
       </label>
+      <div style="display:flex; flex-direction:column; align-items:center; justify-content:flex-end; padding-bottom:10px; color:#64748b; font-size:18px;">⇄</div>
       <label style="display:flex; flex-direction:column; font-size:13px; color:#94a3b8;">
-        Залог (токены) <span style="color:#f87171;">≥ суммы займа</span>
-        <input id="collateral" value="1500" placeholder="напр. 1500" style="margin-top:4px;" />
+        Сумма займа (токены) <span style="color:#4ade80; font-size:11px;">= 70% от залога</span>
+        <input id="amount" placeholder="напр. 1050" style="margin-top:4px;" oninput="calcFromAmount()" />
       </label>
-      <label style="display:flex; flex-direction:column; font-size:13px; color:#94a3b8;">
-        Процентная ставка (%)
-        <input id="interestRate" value="10" placeholder="напр. 10" style="margin-top:4px;" />
-      </label>
+
       <label style="display:flex; flex-direction:column; font-size:13px; color:#94a3b8;">
         Срок займа (дней)
         <input id="durationDays" value="30" placeholder="напр. 30" style="margin-top:4px;" />
       </label>
     </div>
-    <div style="font-size:12px; color:#64748b; margin-bottom:10px;">
-      Пример: займ <b style="color:#38bdf8;">1000</b> токенов под залог <b style="color:#38bdf8;">1500</b> на <b style="color:#38bdf8;">30</b> дней под <b style="color:#38bdf8;">10%</b> → к погашению <b style="color:#4ade80;">1100</b> токенов
+    <div id="loanHint" style="font-size:12px; color:#64748b; margin-bottom:10px;">
+      Введите залог или сумму займа — второе поле рассчитается автоматически
+    </div>
+    <div id="repaymentPreview" style="display:none; background:#0f172a; border-radius:12px; padding:14px 18px; margin-bottom:12px; font-size:14px;">
+      💸 Сумма к погашению: <b id="repaymentValue" style="color:#4ade80; font-size:18px;">—</b> токенов
+      <span style="color:#64748b; font-size:12px; margin-left:8px;">(займ + 10%)</span>
     </div>
     <button id="createLoanBtn">Create Loan</button>
-  </div>
-
-  <div class="card">
-    <h2>Get Loan</h2>
-    <input id="loanId" value="1" placeholder="Loan ID" />
-    <button id="getLoanBtn">Get Loan</button>
-    <button id="getRiskBtn">Risk</button>
-    <button id="getInterestBtn">Interest</button>
-    <button id="repayBtn">Repay</button>
   </div>
 
   <!-- My Loans -->
@@ -148,10 +176,13 @@
     window.location.href = "/login.html";
   }
 
-  // ── Authenticated fetch ───────────────────────────────────────
   function show(data) {
     document.getElementById("result").textContent =
       typeof data === "string" ? data : JSON.stringify(data, null, 2);
+  }
+
+  function authHeaders() {
+    return { "Authorization": "Bearer " + getToken() };
   }
 
   async function request(url, options = {}) {
@@ -161,15 +192,87 @@
     }
     try {
       const response = await fetch(url, options);
-      if (response.status === 401) {
-        show("Сессия истекла. Подключитесь снова.");
-        logout();
-        return;
-      }
+      if (response.status === 401) { show("Сессия истекла."); logout(); return; }
       const text = await response.text();
       try { show(JSON.parse(text)); } catch { show(text); }
     } catch (e) {
       show("Error: " + e.message);
+    }
+  }
+
+  // ── Blockchain status cache ───────────────────────────────────
+  let _cachedStatus = null;
+
+  async function getCachedStatus() {
+    if (_cachedStatus) return _cachedStatus;
+    const res = await fetch(`${API}/blockchain/status`, { headers: authHeaders() });
+    _cachedStatus = await res.json();
+    return _cachedStatus;
+  }
+
+  function isBlockchainMode(status) {
+    return status.blockchainEnabled === true && window.ethereum;
+  }
+
+  // ── Network switching ─────────────────────────────────────────
+  const HARDHAT_CHAIN_ID = "0x7a69"; // 31337 in hex
+
+  async function ensureHardhatNetwork() {
+    const chainId = await window.ethereum.request({ method: "eth_chainId" });
+    if (chainId === HARDHAT_CHAIN_ID) return true;
+
+    try {
+      await window.ethereum.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: HARDHAT_CHAIN_ID }]
+      });
+      return true;
+    } catch (switchError) {
+      show({ error: "Переключите сеть MetaMask на GoChain Testnet / Hardhat Local (RPC: http://127.0.0.1:8545, Chain ID: 31337)" });
+      return false;
+    }
+  }
+
+  // ── MetaMask helpers ──────────────────────────────────────────
+  const ERC20_ABI = [
+    "function balanceOf(address) view returns (uint256)",
+    "function approve(address spender, uint256 amount) returns (bool)"
+  ];
+  const LENDING_ABI = [
+    "function createLoan(uint256 collateral, uint256 durationDays) returns (uint256)",
+    "function repayLoan(uint256 loanId)",
+    "event LoanCreated(uint256 indexed loanId, address indexed borrower, uint256 amount, uint256 collateral)"
+  ];
+
+  async function getSigner() {
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    return provider.getSigner();
+  }
+
+  // ── Add token to MetaMask ─────────────────────────────────────
+  async function addTokenToMetaMask() {
+    try {
+      const status = await getCachedStatus();
+      const tokenAddress = status.collateralTokenAddress;
+      if (!tokenAddress || tokenAddress === "0x0000000000000000000000000000000000000000") {
+        show({ error: "Адрес токена недоступен. Убедитесь, что блокчейн запущен." });
+        return;
+      }
+      await window.ethereum.request({
+        method: "wallet_watchAsset",
+        params: {
+          type: "ERC20",
+          options: {
+            address: tokenAddress,
+            symbol: "mUSD",
+            decimals: 0,
+            image: ""
+          }
+        }
+      });
+      show({ success: "Токен добавлен в MetaMask!" });
+    } catch (e) {
+      show({ error: "Ошибка: " + e.message });
     }
   }
 
@@ -178,9 +281,7 @@
     const container = document.getElementById("myLoans");
     container.textContent = "Загружаем...";
     try {
-      const res = await fetch(`${API}/loans/my`, {
-        headers: { "Authorization": "Bearer " + getToken() }
-      });
+      const res = await fetch(`${API}/loans/my`, { headers: authHeaders() });
       if (res.status === 401) { logout(); return; }
       const loans = await res.json();
 
@@ -204,6 +305,12 @@
           <span>📈 Ставка: <b>${l.interestRate}%</b></span>
           <span>📅 <b>${l.durationDays}</b> дней</span>
           <span>💸 К погашению: <b style="color:#4ade80;">${l.repaymentAmount}</b></span>
+          ${l.status === 'ACTIVE' ? `
+          <button onclick="repayLoan(${l.id})"
+                  style="margin-left:auto; background:#4ade80; color:#0f172a; padding:6px 16px;
+                         border-radius:8px; font-weight:700; font-size:13px; cursor:pointer; border:none;">
+            Погасить
+          </button>` : ''}
         </div>
       `).join("");
     } catch (e) {
@@ -213,120 +320,268 @@
 
   // ── Init ──────────────────────────────────────────────────────
   document.addEventListener("DOMContentLoaded", () => {
-    // Redirect to login if not authenticated
-    if (!getToken()) {
-      window.location.href = "/login.html";
-      return;
-    }
+    if (!getToken()) { window.location.href = "/login.html"; return; }
 
-    // Show wallet address in header
     const addr = getAddress();
     if (addr) {
-      document.getElementById("walletLabel").textContent =
-        addr.slice(0, 6) + "..." + addr.slice(-4);
+      document.getElementById("walletLabel").textContent = addr.slice(0, 6) + "..." + addr.slice(-4);
+      // Auto-fill mint address with connected wallet
+      const mintInput = document.getElementById("mintAddress");
+      if (mintInput && !mintInput.value) mintInput.value = addr;
     }
 
-    const bind = (id, fn) => {
-      const el = document.getElementById(id);
-      if (el) el.addEventListener("click", fn);
-    };
+    const bind = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener("click", fn); };
+    bind("logoutBtn",        logout);
+    bind("getStatus",        checkStatus);
+    bind("addTokenBtn",      addTokenToMetaMask);
+    bind("mintBtn",          mintTokens);
+    bind("createLoanBtn",    createLoan);
+    bind("refreshLoansBtn",  loadMyLoans);
+    bind("refreshBalanceBtn",loadBalances);
 
-    bind("logoutBtn",      logout);
-    bind("getStatus",      checkStatus);
-    bind("approveBtn",     approveCollateral);
-    bind("createLoanBtn",  createLoan);
-    bind("getLoanBtn",     getLoan);
-    bind("getRiskBtn",     getRisk);
-    bind("getInterestBtn", getInterest);
-    bind("repayBtn",       repayLoan);
-    bind("refreshLoansBtn",loadMyLoans);
-
-    // Auto-load loans on open
     loadMyLoans();
+    loadBalances();
+    setInterval(loadBalances, 10000);
   });
+
+  // ── Token Balances ────────────────────────────────────────────
+  let currentCollateralBalance = null;
+
+  async function loadBalances() {
+    try {
+      const status = await getCachedStatus();
+      const tokenAddress = status.collateralTokenAddress;
+      const walletAddress = getAddress();
+
+      // Show "Add to MetaMask" button when blockchain is live
+      const addBtn = document.getElementById("addTokenBtn");
+      if (addBtn && isBlockchainMode(status)) addBtn.style.display = "inline-block";
+
+      let walletBalance = 0;
+
+      if (tokenAddress && tokenAddress !== "0x0000000000000000000000000000000000000000" && window.ethereum) {
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const token = new ethers.Contract(tokenAddress, ERC20_ABI, provider);
+        const raw = await token.balanceOf(walletAddress);
+        walletBalance = Number(raw);
+      } else {
+        const res = await fetch(`${API}/tokens/balances`, { headers: authHeaders() });
+        const data = await res.json();
+        walletBalance = parseInt(data.walletBalance);
+      }
+
+      currentCollateralBalance = walletBalance;
+
+      document.getElementById("walletBalance").textContent = walletBalance.toLocaleString();
+      document.getElementById("totalCapital").textContent = walletBalance.toLocaleString();
+
+      document.getElementById("balanceWarning").style.display = walletBalance === 0 ? "block" : "none";
+    } catch (e) {
+      ["walletBalance","totalCapital"].forEach(id => {
+        document.getElementById(id).textContent = "Ошибка";
+      });
+    }
+  }
 
   async function checkStatus() {
     try {
-      const headers = getToken() ? { "Authorization": "Bearer " + getToken() } : {};
-      const res = await fetch(`${API}/blockchain/status`, { headers });
-      const data = await res.json();
-      show(data);
+      _cachedStatus = null; // сбрасываем кэш
+      const status = await getCachedStatus();
+      show(status);
 
-      const enabled = data.blockchainEnabled === true;
+      const enabled = status.blockchainEnabled === true;
       const badge = document.getElementById("statusBadge");
       const dot   = document.getElementById("statusDot");
       const text  = document.getElementById("statusText");
 
       badge.style.display = "inline-flex";
       if (enabled) {
-        badge.style.background = "#dcfce7";
-        badge.style.color      = "#16a34a";
+        badge.style.background = "#dcfce7"; badge.style.color = "#16a34a";
         dot.style.background   = "#16a34a";
         text.textContent       = "Blockchain connected";
+        document.getElementById("addTokenBtn").style.display = "inline-block";
       } else {
-        badge.style.background = "#fef9c3";
-        badge.style.color      = "#a16207";
+        badge.style.background = "#fef9c3"; badge.style.color = "#a16207";
         dot.style.background   = "#a16207";
         text.textContent       = "Demo mode (no blockchain)";
       }
     } catch (e) {
       show("Error: " + e.message);
       const badge = document.getElementById("statusBadge");
-      const dot   = document.getElementById("statusDot");
-      const text  = document.getElementById("statusText");
-      badge.style.display    = "inline-flex";
-      badge.style.background = "#fee2e2";
-      badge.style.color      = "#dc2626";
-      dot.style.background   = "#dc2626";
-      text.textContent       = "Unavailable";
+      badge.style.display = "inline-flex";
+      badge.style.background = "#fee2e2"; badge.style.color = "#dc2626";
+      document.getElementById("statusDot").style.background = "#dc2626";
+      document.getElementById("statusText").textContent = "Unavailable";
     }
   }
 
-  function approveCollateral() {
-    const amount = document.getElementById("approveAmount").value;
-    request(`${API}/tokens/collateral/approve/${amount}`, {
-      method: "POST"
-    });
+  // ── Loan calculator ───────────────────────────────────────────
+  function updateRepaymentPreview(amount) {
+    const preview = document.getElementById("repaymentPreview");
+    if (amount > 0) {
+      document.getElementById("repaymentValue").textContent = Math.floor(amount * 1.1);
+      preview.style.display = "block";
+    } else {
+      preview.style.display = "none";
+    }
   }
 
-  function createLoan() {
-    const body = {
-      amount: document.getElementById("amount").value,
-      collateral: document.getElementById("collateral").value,
-      interestRate: document.getElementById("interestRate").value,
-      durationDays: document.getElementById("durationDays").value
-    };
-
-    request(`${API}/loans`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(body)
-    });
+  function calcFromCollateral() {
+    const collateral = parseFloat(document.getElementById("collateral").value);
+    const hint = document.getElementById("loanHint");
+    if (!isNaN(collateral) && collateral > 0) {
+      const amount = Math.floor(collateral * 0.7);
+      document.getElementById("amount").value = amount;
+      hint.innerHTML = `Залог <b style="color:#38bdf8;">${collateral}</b> → займ <b style="color:#4ade80;">${amount}</b> токенов (70%)`;
+      updateRepaymentPreview(amount);
+    } else {
+      document.getElementById("amount").value = "";
+      hint.textContent = "Введите залог или сумму займа — второе поле рассчитается автоматически";
+      updateRepaymentPreview(0);
+    }
   }
 
-  function getLoan() {
-    const id = document.getElementById("loanId").value;
-    request(`${API}/loans/${id}`);
+  function calcFromAmount() {
+    const amount = parseFloat(document.getElementById("amount").value);
+    const hint = document.getElementById("loanHint");
+    if (!isNaN(amount) && amount > 0) {
+      const collateral = Math.ceil(amount / 0.7);
+      document.getElementById("collateral").value = collateral;
+      hint.innerHTML = `Займ <b style="color:#4ade80;">${amount}</b> → залог <b style="color:#38bdf8;">${collateral}</b> токенов (минимум)`;
+      updateRepaymentPreview(amount);
+    } else {
+      document.getElementById("collateral").value = "";
+      hint.textContent = "Введите залог или сумму займа — второе поле рассчитается автоматически";
+      updateRepaymentPreview(0);
+    }
   }
 
-  function getRisk() {
-    const id = document.getElementById("loanId").value;
-    request(`${API}/loans/${id}/risk`);
+  // ── Mint tokens (admin op — backend signs) ────────────────────
+  async function mintTokens() {
+    const address = document.getElementById("mintAddress").value.trim();
+    const amount  = parseInt(document.getElementById("mintAmount").value);
+    if (!address) { show({ error: "Введите адрес кошелька" }); return; }
+    if (!amount || amount <= 0) { show({ error: "Введите сумму" }); return; }
+    show("Отправляем токены...");
+    try {
+      const res = await fetch(`${API}/tokens/mint`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ address, amount: amount.toString() })
+      });
+      const data = await res.json();
+      if (!res.ok) { show({ error: data.error || "Ошибка минта" }); return; }
+      show({ success: `Отправлено ${amount} токенов на ${address}`, txHash: data.txHash });
+      loadBalances();
+    } catch (e) {
+      show({ error: "Ошибка: " + e.message });
+    }
   }
 
-  function getInterest() {
-    const id = document.getElementById("loanId").value;
-    request(`${API}/loans/${id}/interest`);
+  // ── Create Loan ───────────────────────────────────────────────
+  async function createLoan() {
+    const collateralValue = parseInt(document.getElementById("collateral").value);
+    const duration        = parseInt(document.getElementById("durationDays").value);
+
+    if (currentCollateralBalance !== null && collateralValue > currentCollateralBalance) {
+      show({ error: `Недостаточно токенов. У вас: ${currentCollateralBalance.toLocaleString()}, нужно: ${collateralValue.toLocaleString()}` });
+      document.getElementById("balanceWarning").style.display = "block";
+      return;
+    }
+
+    const status = await getCachedStatus();
+
+    if (isBlockchainMode(status)) {
+      if (!await ensureHardhatNetwork()) return;
+      try {
+        // Step 1: approve collateral token automatically
+        show("Шаг 1/2: Подтвердите разрешение на залог в MetaMask...");
+        const signer = await getSigner();
+        const token = new ethers.Contract(status.collateralTokenAddress, ERC20_ABI, signer);
+        const approveTx = await token.approve(status.contractAddress, BigInt(collateralValue));
+        show("Ожидаем подтверждения approve...");
+        await approveTx.wait();
+
+        // Step 2: create loan
+        show("Шаг 2/2: Подтвердите создание займа в MetaMask...");
+        const lending = new ethers.Contract(status.contractAddress, LENDING_ABI, signer);
+        const tx = await lending.createLoan(BigInt(collateralValue), BigInt(duration));
+        show("Ожидаем подтверждения блока...");
+        const receipt = await tx.wait();
+
+        // Получаем ID займа из события LoanCreated
+        let loanId = null;
+        const iface = new ethers.Interface(LENDING_ABI);
+        for (const log of receipt.logs) {
+          try {
+            const parsed = iface.parseLog(log);
+            if (parsed && parsed.name === "LoanCreated") {
+              loanId = parsed.args.loanId.toString();
+              break;
+            }
+          } catch {}
+        }
+
+        show({
+          success: "Займ создан! Залог списан с вашего кошелька, токены займа зачислены.",
+          loanId,
+          txHash: tx.hash
+        });
+        loadBalances();
+        loadMyLoans();
+      } catch (e) {
+        show({ error: "Ошибка MetaMask: " + e.message });
+      }
+    } else {
+      // Demo mode — бэкенд
+      const body = { collateral: collateralValue, durationDays: duration };
+      request(`${API}/loans`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      }).then(() => { loadBalances(); loadMyLoans(); });
+    }
   }
 
-  function repayLoan() {
-    const id = document.getElementById("loanId").value;
-    request(`${API}/loans/${id}/repay`, {
-      method: "POST"
-    });
+  // ── Repay Loan ────────────────────────────────────────────────
+  async function repayLoan(id) {
+    const status = await getCachedStatus();
+
+    if (isBlockchainMode(status)) {
+      if (!await ensureHardhatNetwork()) return;
+      try {
+        // 1. Получаем данные займа для суммы погашения
+        const loanRes = await fetch(`${API}/loans/${id}`, { headers: authHeaders() });
+        const loan = await loanRes.json();
+        if (loan.status !== "ACTIVE") { show({ error: "Займ не активен" }); return; }
+
+        // 2. Approve loan token на сумму погашения
+        show("Шаг 1/2: Подтвердите approve токенов займа в MetaMask...");
+        const signer    = await getSigner();
+        const loanToken = new ethers.Contract(status.loanTokenAddress, ERC20_ABI, signer);
+        const approveTx = await loanToken.approve(status.contractAddress, BigInt(loan.repaymentAmount));
+        await approveTx.wait();
+
+        // 3. Погашаем займ
+        show("Шаг 2/2: Подтвердите погашение займа в MetaMask...");
+        const lending = new ethers.Contract(status.contractAddress, LENDING_ABI, signer);
+        const repayTx = await lending.repayLoan(BigInt(id));
+        await repayTx.wait();
+
+        show({
+          success: "Займ погашён! Залог возвращён на ваш кошелёк.",
+          txHash: repayTx.hash
+        });
+        loadBalances();
+        loadMyLoans();
+      } catch (e) {
+        show({ error: "Ошибка MetaMask: " + e.message });
+      }
+    } else {
+      request(`${API}/loans/${id}/repay`, { method: "POST" });
+    }
   }
+
 </script>
 </body>
 </html>

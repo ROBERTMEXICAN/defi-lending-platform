@@ -29,6 +29,19 @@ public class LendingController {
         return lendingService.status();
     }
 
+    @GetMapping("/tokens/balances")
+    public Map<String, BigInteger> getBalances(Authentication auth) {
+        System.out.println(">>> getBalances for address: " + auth.getName());
+        return lendingService.getBalances(auth.getName());
+    }
+
+    @PostMapping("/tokens/mint")
+    public Map<String, String> mintTokens(@RequestBody Map<String, String> body) {
+        String address = body.get("address");
+        BigInteger amount = new BigInteger(body.get("amount"));
+        return Map.of("txHash", lendingService.mintTokens(address, amount));
+    }
+
     @PostMapping("/tokens/collateral/approve/{amount}")
     public Map<String, String> approveCollateral(@PathVariable BigInteger amount) {
         return Map.of("txHash", lendingService.approveCollateral(amount));
@@ -46,6 +59,7 @@ public class LendingController {
 
     @PostMapping("/loans")
     public LoanResponse createLoan(@RequestBody CreateLoanRequest request, Authentication auth) {
+        System.out.println(">>> createLoan request: collateral=" + request.collateral() + " durationDays=" + request.durationDays());
         return lendingService.createLoan(request, auth.getName());
     }
 
