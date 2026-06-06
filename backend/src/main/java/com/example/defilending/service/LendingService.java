@@ -8,6 +8,7 @@ import org.web3j.abi.FunctionEncoder;
 import org.web3j.abi.FunctionReturnDecoder;
 import org.web3j.abi.TypeReference;
 import org.web3j.abi.datatypes.Address;
+import org.web3j.abi.datatypes.DynamicArray;
 import org.web3j.abi.datatypes.Function;
 import org.web3j.abi.datatypes.Type;
 import org.web3j.abi.datatypes.generated.Uint256;
@@ -57,9 +58,7 @@ public class LendingService {
                 Function function = new Function(
                         "createLoan",
                         Arrays.asList(
-                                new Uint256(request.amount()),
                                 new Uint256(request.collateral()),
-                                new Uint256(request.interestRate()),
                                 new Uint256(request.durationDays())
                         ),
                         List.of(new TypeReference<Uint256>() {})
@@ -85,7 +84,30 @@ public class LendingService {
     }
 
     public List<LoanResponse> getLoansByAddress(String address) {
-        List<BigInteger> ids = loansByAddress.getOrDefault(address.toLowerCase(), List.of());
+        List<BigInteger> ids;
+        if (blockchainEnabled()) {
+            try {
+                Function function = new Function(
+                        "getLoanIdsByBorrower",
+                        List.of(new Address(address)),
+                        List.of(new TypeReference<DynamicArray<Uint256>>() {})
+                );
+                List<Type> values = call(props.getContractAddress(), function);
+                if (!values.isEmpty()) {
+                    @SuppressWarnings("unchecked")
+                    DynamicArray<Uint256> arr = (DynamicArray<Uint256>) values.get(0);
+                    ids = arr.getValue().stream()
+                            .map(u -> (BigInteger) u.getValue())
+                            .collect(java.util.stream.Collectors.toList());
+                } else {
+                    ids = List.of();
+                }
+            } catch (Exception e) {
+                ids = loansByAddress.getOrDefault(address.toLowerCase(), List.of());
+            }
+        } else {
+            ids = loansByAddress.getOrDefault(address.toLowerCase(), List.of());
+        }
         return ids.stream()
                 .map(id -> {
                     try { return getLoan(id); } catch (Exception e) { return null; }
@@ -195,6 +217,54 @@ public class LendingService {
         return updated;
     }
 
+    public Map<String, BigInteger> getBalances(String address) {
+        BigInteger walletBalance;
+        if (!blockchainEnabled()) {
+            walletBalance = BigInteger.valueOf(100000);
+        } else {
+            try {
+                walletBalance = callUint(props.getCollateralTokenAddress(), new Function(
+                        "balanceOf",
+                        List.of(new Address(address)),
+                        List.of(new TypeReference<Uint256>() {})
+                ));
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to get balance: " + e.getMessage(), e);
+            }
+        }
+
+        // Считаем сумму залогов по активным займам пользователя
+        List<BigInteger> ids = loansByAddress.getOrDefault(address.toLowerCase(), List.of());
+        BigInteger lockedCollateral = BigInteger.ZERO;
+        for (BigInteger id : ids) {
+            try {
+                LoanResponse loan = getLoan(id);
+                if ("ACTIVE".equals(loan.status())) {
+                    lockedCollateral = lockedCollateral.add(loan.collateral());
+                }
+            } catch (Exception ignored) {}
+        }
+
+        return Map.of(
+                "walletBalance", walletBalance,
+                "lockedCollateral", lockedCollateral
+        );
+    }
+
+    public String mintTokens(String toAddress, BigInteger amount) {
+        if (!blockchainEnabled()) throw new IllegalStateException("Blockchain mode is disabled");
+        try {
+            Function function = new Function(
+                    "mint",
+                    Arrays.asList(new Address(toAddress), new Uint256(amount)),
+                    List.of()
+            );
+            return sendTransaction(props.getCollateralTokenAddress(), function);
+        } catch (Exception e) {
+            throw new RuntimeException("Mint failed: " + e.getMessage(), e);
+        }
+    }
+
     public String approveCollateral(BigInteger amount) {
         return approve(props.getCollateralTokenAddress(), amount);
     }
@@ -230,12 +300,15 @@ public class LendingService {
         }
     }
 
+    private static final BigInteger INTEREST_RATE = BigInteger.valueOf(10);
+
     private LoanResponse createDemoLoan(CreateLoanRequest request, String callerAddress) {
         BigInteger id = BigInteger.valueOf(counter.incrementAndGet());
+        BigInteger amount = request.collateral().multiply(BigInteger.valueOf(70)).divide(BigInteger.valueOf(100));
         BigInteger now = BigInteger.valueOf(Instant.now().getEpochSecond());
         BigInteger end = now.add(request.durationDays().multiply(BigInteger.valueOf(86400)));
-        BigInteger repayment = request.amount().add(request.amount().multiply(request.interestRate()).divide(BigInteger.valueOf(100)));
-        LoanResponse loan = new LoanResponse(id, callerAddress.toLowerCase(), request.amount(), request.collateral(), request.interestRate(), request.durationDays(), "ACTIVE", now, end, repayment);
+        BigInteger repayment = amount.add(amount.multiply(INTEREST_RATE).divide(BigInteger.valueOf(100)));
+        LoanResponse loan = new LoanResponse(id, callerAddress.toLowerCase(), amount, request.collateral(), INTEREST_RATE, request.durationDays(), "ACTIVE", now, end, repayment);
         demoStorage.put(id, loan);
         recordLoan(callerAddress, id);
         return loan;

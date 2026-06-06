@@ -22,12 +22,15 @@ contract LendingProtocol {
         uint256 repaymentAmount;
     }
 
+    uint256 public constant INTEREST_RATE = 10; // фиксированная ставка 10%
+
     IERC20 public immutable loanToken;
     IERC20 public immutable collateralToken;
     uint256 public loanCounter;
     address public owner;
 
     mapping(uint256 => Loan) public loans;
+    mapping(address => uint256[]) private _loansByBorrower;
 
     event LoanCreated(uint256 indexed loanId, address indexed borrower, uint256 amount, uint256 collateral);
     event LoanRepaid(uint256 indexed loanId, address indexed borrower, uint256 repaymentAmount);
@@ -48,27 +51,28 @@ contract LendingProtocol {
     }
 
     function createLoan(
-        uint256 amount,
         uint256 collateral,
-        uint256 interestRate,
         uint256 durationDays
     ) external returns (uint256) {
-        require(amount > 0, "Amount must be positive");
         require(collateral > 0, "Collateral must be positive");
         require(durationDays > 0, "Duration must be positive");
+
+        // Сумма займа = 70% от залога
+        uint256 amount = (collateral * 70) / 100;
+        require(amount > 0, "Collateral too small");
 
         require(collateralToken.transferFrom(msg.sender, address(this), collateral), "Collateral transfer failed");
         require(loanToken.transfer(msg.sender, amount), "Loan transfer failed");
 
         loanCounter++;
         uint256 loanId = loanCounter;
-        uint256 repaymentAmount = amount + ((amount * interestRate) / 100);
+        uint256 repaymentAmount = amount + ((amount * INTEREST_RATE) / 100);
 
         loans[loanId] = Loan({
             borrower: msg.sender,
             amount: amount,
             collateral: collateral,
-            interestRate: interestRate,
+            interestRate: INTEREST_RATE,
             durationDays: durationDays,
             status: LoanStatus.Active,
             startTime: block.timestamp,
@@ -76,8 +80,13 @@ contract LendingProtocol {
             repaymentAmount: repaymentAmount
         });
 
+        _loansByBorrower[msg.sender].push(loanId);
         emit LoanCreated(loanId, msg.sender, amount, collateral);
         return loanId;
+    }
+
+    function getLoanIdsByBorrower(address borrower) external view returns (uint256[] memory) {
+        return _loansByBorrower[borrower];
     }
 
     function getLoanDetails(uint256 loanId) external view returns (Loan memory) {

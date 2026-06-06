@@ -8,6 +8,8 @@ services:
       - "8545:8545"   # expose RPC for optional external tools (Metamask, etc.)
     volumes:
       - shared:/shared
+    environment:
+      EXTRA_ADDRESSES: "0x5aadca1184f19f37462c44ae222eeae3cd08bed1,0xcA904E7d9b87b3d13F9A0600180C6d1aB8fae7b3,0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
     healthcheck:
       # Ready once contracts.env has been written by the deploy script
       test: ["CMD", "test", "-f", "/shared/contracts.env"]

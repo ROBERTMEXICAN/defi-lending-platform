@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 contract MockERC20 {
     string public name;
     string public symbol;
-    uint8 public decimals = 18;
+    uint8 public decimals = 0;
     uint256 public totalSupply;
 
     mapping(address => uint256) public balanceOf;

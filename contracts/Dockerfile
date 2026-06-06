@@ -4,7 +4,7 @@ RUN apk add --no-cache netcat-openbsd
 
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
+RUN npm install --fetch-timeout=600000
 COPY . .
 
 # Compile contracts at build time so the image is ready to deploy immediately

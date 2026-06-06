@@ -24,10 +24,8 @@ document.getElementById("getStatus").addEventListener("click", async () => {
 document.getElementById("createLoan").addEventListener("click", async () => {
   try {
     const body = {
-      amount: document.getElementById("amount").value,
-      collateral: document.getElementById("collateral").value,
-      interestRate: document.getElementById("interestRate").value,
-      durationDays: document.getElementById("durationDays").value
+      collateral: parseInt(document.getElementById("collateral").value),
+      durationDays: parseInt(document.getElementById("durationDays").value)
     };
     show(await request("/loans", {
       method: "POST",
